@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Obra">
+<meta name="theme-color" content="#1F4E78">
+<title>Controle de Obras</title>
+
+<!-- Ícone PWA inline (SVG → data URL) -->
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODAgMTgwIj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgZmlsbD0iIzFGNEU3OCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iLWFwcGxlLXN5c3RlbSwgQXJpYWwiIGZvbnQtc2l6ZT0iOTAiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0iY2VudHJhbCI+8J+PlzwvdGV4dD48L3N2Zz4=">
+
+<!-- Manifesto PWA -->
+<link rel="manifest" href='data:application/json,{"name":"Controle de Obras","short_name":"Obra","start_url":".","display":"standalone","background_color":"%23F5F2ED","theme_color":"%231F4E78","icons":[{"src":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODAgMTgwIj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgZmlsbD0iIzFGNEU3OCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iLWFwcGxlLXN5c3RlbSwgQXJpYWwiIGZvbnQtc2l6ZT0iOTAiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0iY2VudHJhbCI+8J+PlzwvdGV4dD48L3N2Zz4=","sizes":"180x180","type":"image/svg+xml"}]}'>
+
+<!-- SheetJS para gerar Excel -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+
+<style>
+  /* === Reset & Base === */
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --bg: #F5F2ED;
+    --bg-card: #FFFFFF;
+    --bg-elevated: #FAFAF7;
+    --ink: #1A1A1A;
+    --ink-soft: #5C5C5C;
+    --ink-faint: #999999;
+    --accent: #1F4E78;
+    --accent-soft: #E8EEF4;
+    --warn: #C00000;
+    --warn-soft: #FCE4D6;
+    --ok: #2D6A4F;
+    --line: #E0DDD7;
+    --shadow: 0 1px 3px rgba(26,26,26,0.06), 0 4px 12px rgba(26,26,26,0.04);
+    --radius: 14px;
+    --radius-sm: 10px;
+  }
+
+  html, body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    font-size: 16px;
+    line-height: 1.45;
+    overscroll-behavior-y: none;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    padding: max(env(safe-area-inset-top), 8px) 0 calc(env(safe-area-inset-bottom) + 80px) 0;
+    min-height: 100vh;
+  }
+
+  /* === Header === */
+  .topbar {
+    padding: 8px 20px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    background: rgba(245, 242, 237, 0.92);
+  }
+  .topbar h1 {
+    font-family: 'SF Pro Display', -apple-system, sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .topbar .sub {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+
+  /* === Content === */
+  main {
+    padding: 16px 16px 24px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .view { display: none; }
+  .view.active { display: block; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* === Cards === */
+  .card {
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+
+  .card h2 {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--ink-faint);
+    margin-bottom: 14px;
+  }
+
+  /* === Form Fields === */
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+
+  input, select, textarea {
+    width: 100%;
+    padding: 14px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--bg-elevated);
+    color: var(--ink);
+    font-size: 16px; /* iOS não dá zoom se >= 16px */
+    font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: white;
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%231F4E78' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    padding-right: 40px;
+  }
+  textarea { resize: vertical; min-height: 80px; }
+
+  /* Row layout para campos lado a lado */
+  .row { display: grid; gap: 10px; }
+  .row.two { grid-template-columns: 1fr 1fr; }
+
+  /* === Buttons === */
+  .btn {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 16px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform 0.08s, opacity 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-secondary { background: var(--accent-soft); color: var(--accent); }
+  .btn-ghost { background: transparent; color: var(--ink-soft); }
+  .btn-danger { background: var(--warn-soft); color: var(--warn); }
+  .btn-sm { padding: 10px 14px; font-size: 14px; width: auto; }
+
+  /* === Bottom Tab Bar === */
+  nav.tabs {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-top: 1px solid var(--line);
+    display: flex;
+    padding: 6px 0 calc(env(safe-area-inset-bottom) + 6px);
+    z-index: 100;
+  }
+  nav.tabs button {
+    flex: 1;
+    background: none;
+    border: none;
+    padding: 8px 4px;
+    color: var(--ink-faint);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: color 0.15s;
+  }
+  nav.tabs button.active { color: var(--accent); }
+  nav.tabs button .icon {
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  /* === Lista de itens === */
+  .item-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .item {
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .item-info { flex: 1; min-width: 0; }
+  .item-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .item-meta {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+  .item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .icon-btn {
+    background: var(--bg-elevated);
+    border: none;
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+    color: var(--ink-soft);
+  }
+  .icon-btn:active { background: var(--line); }
+
+  /* === Empty state === */
+  .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--ink-faint);
+  }
+  .empty .big { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+  .empty p { font-size: 14px; }
+
+  /* === KPI Cards === */
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .kpi {
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    box-shadow: var(--shadow);
+  }
+  .kpi.featured {
+    background: var(--accent);
+    color: white;
+    grid-column: 1 / -1;
+  }
+  .kpi-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--ink-faint);
+    font-weight: 600;
+  }
+  .kpi.featured .kpi-label { color: rgba(255,255,255,0.7); }
+  .kpi-value {
+    font-size: 26px;
+    font-weight: 700;
+    margin-top: 4px;
+    color: var(--accent);
+    font-family: 'SF Pro Display', -apple-system, sans-serif;
+    letter-spacing: -0.5px;
+  }
+  .kpi.featured .kpi-value { color: white; font-size: 32px; }
+
+  /* === Pill / Badge === */
+  .pill {
+    display: inline-block;
+    padding: 3px 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+
+  /* === Toast === */
+  .toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink);
+    color: white;
+    padding: 12px 22px;
+    border-radius: 100px;
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+    z-index: 1000;
+    max-width: 90%;
+    text-align: center;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .toast.success { background: var(--ok); }
+  .toast.error { background: var(--warn); }
+
+  /* === Modal === */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 200;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-backdrop.show { display: flex; animation: fadeIn 0.15s; }
+  .modal {
+    background: var(--bg);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px calc(env(safe-area-inset-bottom) + 24px);
+    width: 100%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    animation: slideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .modal h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--ink);
+  }
+
+  /* === Dia atual destaque === */
+  .date-strip {
+    text-align: center;
+    margin-bottom: 14px;
+    padding: 14px;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+  }
+  .date-strip .today {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--ink-faint);
+    font-weight: 700;
+  }
+  .date-strip .full {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-top: 4px;
+    font-family: 'SF Pro Display', -apple-system, sans-serif;
+    letter-spacing: -0.3px;
+  }
+
+  /* Lançamento na lista - compacto */
+  .lancto {
+    background: var(--bg-card);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    box-shadow: var(--shadow);
+    border-left: 3px solid var(--accent);
+  }
+  .lancto-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .lancto-func {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .lancto-custo {
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 15px;
+    white-space: nowrap;
+    font-family: 'SF Pro Display', -apple-system, sans-serif;
+  }
+  .lancto-obra {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+  .lancto-meta {
+    display: flex;
+    gap: 12px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+  .lancto-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+  .lancto-actions button {
+    flex: 1;
+    padding: 6px;
+    background: var(--bg-elevated);
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .lancto-actions button:active { background: var(--line); }
+  .lancto-actions .del { color: var(--warn); }
+
+  hr.sep {
+    border: none;
+    border-top: 1px solid var(--line);
+    margin: 20px 0;
+  }
+
+  /* Section header dentro de card */
+  .group-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--ink-faint);
+    margin: 16px 0 8px;
+  }
+  .group-title:first-child { margin-top: 0; }
+
+  .help {
+    font-size: 12px;
+    color: var(--ink-faint);
+    line-height: 1.5;
+    margin-top: 6px;
+  }
+
+  /* Print on small */
+  @media (max-width: 360px) {
+    .kpi-value { font-size: 22px; }
+    .kpi.featured .kpi-value { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <h1><span id="viewTitle">🏗 Controle de Obras</span></h1>
+  <div class="sub" id="viewSub">Lançamento diário no canteiro</div>
+</header>
+
+<main>
+
+  <!-- ===== VIEW: LANÇAR ===== -->
+  <section class="view active" id="view-lancar">
+    <div class="date-strip">
+      <div class="today">Lançamento de</div>
+      <div class="full" id="dataAtualLabel">—</div>
+    </div>
+
+    <div class="card">
+      <h2>Novo lançamento</h2>
+      <div class="field">
+        <label>Data</label>
+        <input type="date" id="lancData">
+      </div>
+      <div class="field">
+        <label>Funcionário</label>
+        <select id="lancFunc">
+          <option value="">— selecione —</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Obra</label>
+        <select id="lancObra">
+          <option value="">— selecione —</option>
+        </select>
+      </div>
+      <div class="row two">
+        <div class="field">
+          <label>Horas</label>
+          <input type="number" id="lancHoras" inputmode="decimal" step="0.5" min="0" max="24" placeholder="8">
+        </div>
+        <div class="field">
+          <label>Fração do dia</label>
+          <select id="lancFrac">
+            <option value="1">Dia inteiro (1)</option>
+            <option value="0.75">3/4 (0,75)</option>
+            <option value="0.5">Meio dia (0,5)</option>
+            <option value="0.25">1/4 (0,25)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Atividade / Observação</label>
+        <textarea id="lancObs" placeholder="Ex: Alvenaria do 3º andar"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="salvarLancamento()">
+        ✓ Salvar lançamento
+      </button>
+    </div>
+
+    <h2 class="group-title">Lançamentos do dia</h2>
+    <div id="lanctosHoje" class="item-list"></div>
+  </section>
+
+  <!-- ===== VIEW: HISTÓRICO ===== -->
+  <section class="view" id="view-historico">
+    <div class="card">
+      <h2>Filtrar por data</h2>
+      <div class="row two">
+        <div class="field">
+          <label>De</label>
+          <input type="date" id="filtroDe">
+        </div>
+        <div class="field">
+          <label>Até</label>
+          <input type="date" id="filtroAte">
+        </div>
+      </div>
+      <div class="field">
+        <label>Funcionário (opcional)</label>
+        <select id="filtroFunc">
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Obra (opcional)</label>
+        <select id="filtroObra">
+          <option value="">Todas</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="aplicarFiltro()" style="width:100%">
+        Aplicar filtros
+      </button>
+    </div>
+
+    <div class="kpis" id="kpisHistorico"></div>
+
+    <h2 class="group-title">Lançamentos</h2>
+    <div id="lanctosHistorico" class="item-list"></div>
+  </section>
+
+  <!-- ===== VIEW: CADASTROS ===== -->
+  <section class="view" id="view-cadastros">
+
+    <div class="card">
+      <h2>👷 Funcionários</h2>
+      <div class="row two">
+        <div class="field">
+          <label>Nome</label>
+          <input type="text" id="funcNome" placeholder="Ex: João Silva">
+        </div>
+        <div class="field">
+          <label>Função</label>
+          <input type="text" id="funcCargo" placeholder="Ex: Pedreiro">
+        </div>
+      </div>
+      <div class="field">
+        <label>Diária (R$)</label>
+        <input type="number" id="funcDiaria" inputmode="decimal" step="0.01" min="0" placeholder="180.00">
+      </div>
+      <button class="btn btn-primary" onclick="salvarFuncionario()">+ Adicionar funcionário</button>
+      <hr class="sep">
+      <div id="listaFuncionarios" class="item-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>🏗 Obras</h2>
+      <div class="field">
+        <label>Nome da obra</label>
+        <input type="text" id="obraNome" placeholder="Ex: Edifício Aurora">
+      </div>
+      <div class="field">
+        <label>Endereço</label>
+        <input type="text" id="obraEnd" placeholder="Ex: Rua das Flores, 100">
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select id="obraStatus">
+          <option>Em andamento</option>
+          <option>Concluída</option>
+          <option>Pausada</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" onclick="salvarObra()">+ Adicionar obra</button>
+      <hr class="sep">
+      <div id="listaObras" class="item-list"></div>
+    </div>
+
+  </section>
+
+  <!-- ===== VIEW: EXPORTAR ===== -->
+  <section class="view" id="view-exportar">
+    <div class="card">
+      <h2>📤 Exportar dados</h2>
+      <p style="font-size:14px;color:var(--ink-soft);margin-bottom:16px;">
+        Gere um arquivo Excel com todos os lançamentos para juntar à sua planilha mestre no computador.
+      </p>
+
+      <div class="kpis" style="margin-bottom:16px;">
+        <div class="kpi">
+          <div class="kpi-label">Lançamentos</div>
+          <div class="kpi-value" id="exportTotal">0</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Período</div>
+          <div class="kpi-value" id="exportPeriodo" style="font-size:13px;line-height:1.3;padding-top:8px;">—</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="exportarExcel()" style="margin-bottom:10px">
+        📊 Exportar Excel (.xlsx)
+      </button>
+      <button class="btn btn-secondary" onclick="exportarCSV()" style="margin-bottom:10px">
+        📄 Exportar CSV
+      </button>
+      <button class="btn btn-ghost" onclick="copiarParaArea()">
+        📋 Copiar como tabela (colar no Excel)
+      </button>
+
+      <p class="help" style="margin-top:14px;">
+        <strong>Como funciona no iPhone:</strong> ao tocar em "Exportar", o iPhone abre a folha de compartilhamento.
+        Você pode <strong>salvar nos Arquivos</strong>, mandar por <strong>e-mail</strong>, <strong>AirDrop</strong> para o computador,
+        ou abrir direto no Excel/Numbers.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>⚙️ Gerenciamento</h2>
+      <button class="btn btn-secondary" onclick="exportarBackup()" style="margin-bottom:10px">
+        💾 Backup completo (JSON)
+      </button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importarBackup(event)">
+      <button class="btn btn-ghost" onclick="document.getElementById('importFile').click()" style="margin-bottom:10px">
+        📥 Restaurar backup
+      </button>
+      <button class="btn btn-danger" onclick="apagarTudo()">
+        🗑 Apagar todos os lançamentos
+      </button>
+      <p class="help" style="margin-top:10px;">
+        Os dados ficam salvos no seu iPhone. Faça backups periódicos para não perder caso troque de aparelho ou limpe o navegador.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>📲 Instalar como app</h2>
+      <p style="font-size:14px;color:var(--ink-soft);">
+        Para usar como app: toque em <strong>Compartilhar</strong> no Safari (ícone de quadrado com seta) e depois em <strong>Adicionar à Tela de Início</strong>.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== Tab Bar ===== -->
+<nav class="tabs">
+  <button class="active" data-view="lancar" onclick="trocarView('lancar')">
+    <span class="icon">＋</span>
+    <span>Lançar</span>
+  </button>
+  <button data-view="historico" onclick="trocarView('historico')">
+    <span class="icon">📅</span>
+    <span>Histórico</span>
+  </button>
+  <button data-view="cadastros" onclick="trocarView('cadastros')">
+    <span class="icon">👥</span>
+    <span>Cadastros</span>
+  </button>
+  <button data-view="exportar" onclick="trocarView('exportar')">
+    <span class="icon">📤</span>
+    <span>Exportar</span>
+  </button>
+</nav>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Modal -->
+<div class="modal-backdrop" id="modalBackdrop" onclick="fecharModal(event)">
+  <div class="modal" id="modal" onclick="event.stopPropagation()"></div>
+</div>
+
+<script>
+/* ============================================================
+   STATE & PERSISTENCE
+   ============================================================ */
+const STORE_KEY = 'controleObras_v1';
+
+let state = {
+  funcionarios: [],
+  obras: [],
+  lancamentos: []
+};
+
+function salvar() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  } catch (e) {
+    toast('Erro ao salvar: armazenamento cheio', 'error');
+  }
+}
+
+function carregar() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      state.funcionarios = parsed.funcionarios || [];
+      state.obras = parsed.obras || [];
+      state.lancamentos = parsed.lancamentos || [];
+    } else {
+      // Dados de exemplo na primeira execução
+      state.funcionarios = [
+        { id: id(), nome: 'João Silva', cargo: 'Pedreiro', diaria: 180 },
+        { id: id(), nome: 'Carlos Oliveira', cargo: 'Servente', diaria: 120 }
+      ];
+      state.obras = [
+        { id: id(), nome: 'Edifício Aurora', endereco: 'Rua das Flores, 100', status: 'Em andamento' }
+      ];
+      salvar();
+    }
+  } catch (e) {
+    console.error('Erro ao carregar:', e);
+  }
+}
+
+function id() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+/* ============================================================
+   UTILS
+   ============================================================ */
+function fmtMoeda(v) {
+  return 'R$ ' + (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtData(d) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function fmtDataExtensa(d) {
+  if (!d) return '';
+  const dt = new Date(d + 'T12:00:00');
+  return dt.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function hoje() {
+  const d = new Date();
+  return d.toISOString().split('T')[0];
+}
+
+function toast(msg, tipo = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (tipo ? ' ' + tipo : '');
+  setTimeout(() => t.className = 'toast', 2400);
+}
+
+function confirmar(titulo, msg, callback) {
+  const m = document.getElementById('modal');
+  m.innerHTML = `
+    <h3>${titulo}</h3>
+    <p style="margin-bottom:20px;color:var(--ink-soft);font-size:14px;">${msg}</p>
+    <button class="btn btn-danger" id="confirmYes" style="margin-bottom:8px">Confirmar</button>
+    <button class="btn btn-ghost" onclick="fecharModal()">Cancelar</button>
+  `;
+  document.getElementById('modalBackdrop').classList.add('show');
+  document.getElementById('confirmYes').onclick = () => { callback(); fecharModal(); };
+}
+
+function fecharModal(e) {
+  if (e && e.target.id !== 'modalBackdrop') return;
+  document.getElementById('modalBackdrop').classList.remove('show');
+}
+
+/* ============================================================
+   NAVEGAÇÃO
+   ============================================================ */
+function trocarView(v) {
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + v).classList.add('active');
+  document.querySelectorAll('nav.tabs button').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === v)
+  );
+  const titles = {
+    lancar:    ['🏗 Controle de Obras', 'Lançamento diário no canteiro'],
+    historico: ['📅 Histórico',          'Consulta e filtragem de registros'],
+    cadastros: ['👥 Cadastros',          'Funcionários e obras'],
+    exportar:  ['📤 Exportar',           'Gerar arquivo para sua planilha']
+  };
+  document.getElementById('viewTitle').textContent = titles[v][0];
+  document.getElementById('viewSub').textContent = titles[v][1];
+
+  if (v === 'historico') renderHistorico();
+  if (v === 'exportar') atualizarExportInfo();
+  if (v === 'cadastros') { renderFuncionarios(); renderObras(); }
+  if (v === 'lancar') renderLanctosHoje();
+  window.scrollTo(0, 0);
+}
+
+/* ============================================================
+   FUNCIONÁRIOS
+   ============================================================ */
+function salvarFuncionario() {
+  const nome = document.getElementById('funcNome').value.trim();
+  const cargo = document.getElementById('funcCargo').value.trim();
+  const diaria = parseFloat(document.getElementById('funcDiaria').value);
+  if (!nome) return toast('Informe o nome', 'error');
+  if (isNaN(diaria) || diaria < 0) return toast('Informe a diária', 'error');
+
+  state.funcionarios.push({ id: id(), nome, cargo, diaria });
+  salvar();
+  document.getElementById('funcNome').value = '';
+  document.getElementById('funcCargo').value = '';
+  document.getElementById('funcDiaria').value = '';
+  renderFuncionarios();
+  popularSelects();
+  toast('Funcionário adicionado', 'success');
+}
+
+function renderFuncionarios() {
+  const c = document.getElementById('listaFuncionarios');
+  if (!state.funcionarios.length) {
+    c.innerHTML = '<div class="empty"><div class="big">👷</div><p>Nenhum funcionário cadastrado.</p></div>';
+    return;
+  }
+  c.innerHTML = state.funcionarios.map(f => `
+    <div class="item">
+      <div class="item-info">
+        <div class="item-title">${escapeHtml(f.nome)}</div>
+        <div class="item-meta">${escapeHtml(f.cargo || '')} · ${fmtMoeda(f.diaria)}/dia</div>
+      </div>
+      <div class="item-actions">
+        <button class="icon-btn" onclick="editarFuncionario('${f.id}')">✎</button>
+        <button class="icon-btn" onclick="deletarFuncionario('${f.id}')">🗑</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function editarFuncionario(fid) {
+  const f = state.funcionarios.find(x => x.id === fid);
+  if (!f) return;
+  const m = document.getElementById('modal');
+  m.innerHTML = `
+    <h3>Editar funcionário</h3>
+    <div class="field"><label>Nome</label><input id="ed-nome" value="${escapeHtml(f.nome)}"></div>
+    <div class="field"><label>Função</label><input id="ed-cargo" value="${escapeHtml(f.cargo || '')}"></div>
+    <div class="field"><label>Diária (R$)</label><input id="ed-diaria" type="number" step="0.01" value="${f.diaria}"></div>
+    <button class="btn btn-primary" onclick="confirmarEdicaoFunc('${fid}')" style="margin-bottom:8px">Salvar</button>
+    <button class="btn btn-ghost" onclick="fecharModal()">Cancelar</button>
+  `;
+  document.getElementById('modalBackdrop').classList.add('show');
+}
+
+function confirmarEdicaoFunc(fid) {
+  const f = state.funcionarios.find(x => x.id === fid);
+  f.nome = document.getElementById('ed-nome').value.trim();
+  f.cargo = document.getElementById('ed-cargo').value.trim();
+  f.diaria = parseFloat(document.getElementById('ed-diaria').value) || 0;
+  salvar();
+  renderFuncionarios();
+  popularSelects();
+  fecharModal();
+  toast('Atualizado', 'success');
+}
+
+function deletarFuncionario(fid) {
+  const f = state.funcionarios.find(x => x.id === fid);
+  const usados = state.lancamentos.filter(l => l.funcionarioId === fid).length;
+  const msg = usados
+    ? `Este funcionário tem ${usados} lançamento(s). Os lançamentos antigos serão preservados, mas referenciarão o nome.`
+    : 'Tem certeza que deseja remover?';
+  confirmar(`Remover ${f.nome}?`, msg, () => {
+    state.funcionarios = state.funcionarios.filter(x => x.id !== fid);
+    salvar();
+    renderFuncionarios();
+    popularSelects();
+    toast('Removido');
+  });
+}
+
+/* ============================================================
+   OBRAS
+   ============================================================ */
+function salvarObra() {
+  const nome = document.getElementById('obraNome').value.trim();
+  const endereco = document.getElementById('obraEnd').value.trim();
+  const status = document.getElementById('obraStatus').value;
+  if (!nome) return toast('Informe o nome da obra', 'error');
+
+  state.obras.push({ id: id(), nome, endereco, status });
+  salvar();
+  document.getElementById('obraNome').value = '';
+  document.getElementById('obraEnd').value = '';
+  renderObras();
+  popularSelects();
+  toast('Obra adicionada', 'success');
+}
+
+function renderObras() {
+  const c = document.getElementById('listaObras');
+  if (!state.obras.length) {
+    c.innerHTML = '<div class="empty"><div class="big">🏗</div><p>Nenhuma obra cadastrada.</p></div>';
+    return;
+  }
+  c.innerHTML = state.obras.map(o => `
+    <div class="item">
+      <div class="item-info">
+        <div class="item-title">${escapeHtml(o.nome)}</div>
+        <div class="item-meta">
+          <span class="pill ${o.status === 'Concluída' ? '' : 'warn'}" style="margin-right:6px">${o.status}</span>
+          ${escapeHtml(o.endereco || '')}
+        </div>
+      </div>
+      <div class="item-actions">
+        <button class="icon-btn" onclick="editarObra('${o.id}')">✎</button>
+        <button class="icon-btn" onclick="deletarObra('${o.id}')">🗑</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function editarObra(oid) {
+  const o = state.obras.find(x => x.id === oid);
+  if (!o) return;
+  const m = document.getElementById('modal');
+  m.innerHTML = `
+    <h3>Editar obra</h3>
+    <div class="field"><label>Nome</label><input id="ed-onome" value="${escapeHtml(o.nome)}"></div>
+    <div class="field"><label>Endereço</label><input id="ed-oend" value="${escapeHtml(o.endereco || '')}"></div>
+    <div class="field"><label>Status</label>
+      <select id="ed-ostatus">
+        <option ${o.status === 'Em andamento' ? 'selected' : ''}>Em andamento</option>
+        <option ${o.status === 'Concluída' ? 'selected' : ''}>Concluída</option>
+        <option ${o.status === 'Pausada' ? 'selected' : ''}>Pausada</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="confirmarEdicaoObra('${oid}')" style="margin-bottom:8px">Salvar</button>
+    <button class="btn btn-ghost" onclick="fecharModal()">Cancelar</button>
+  `;
+  document.getElementById('modalBackdrop').classList.add('show');
+}
+
+function confirmarEdicaoObra(oid) {
+  const o = state.obras.find(x => x.id === oid);
+  o.nome = document.getElementById('ed-onome').value.trim();
+  o.endereco = document.getElementById('ed-oend').value.trim();
+  o.status = document.getElementById('ed-ostatus').value;
+  salvar();
+  renderObras();
+  popularSelects();
+  fecharModal();
+  toast('Atualizado', 'success');
+}
+
+function deletarObra(oid) {
+  const o = state.obras.find(x => x.id === oid);
+  const usados = state.lancamentos.filter(l => l.obraId === oid).length;
+  const msg = usados
+    ? `Esta obra tem ${usados} lançamento(s). Os lançamentos antigos serão preservados, mas referenciarão o nome.`
+    : 'Tem certeza que deseja remover?';
+  confirmar(`Remover ${o.nome}?`, msg, () => {
+    state.obras = state.obras.filter(x => x.id !== oid);
+    salvar();
+    renderObras();
+    popularSelects();
+    toast('Removido');
+  });
+}
+
+/* ============================================================
+   LANÇAMENTOS
+   ============================================================ */
+function popularSelects() {
+  const fOpts = '<option value="">— selecione —</option>' +
+    state.funcionarios.map(f => `<option value="${f.id}">${escapeHtml(f.nome)}</option>`).join('');
+  const oOpts = '<option value="">— selecione —</option>' +
+    state.obras.map(o => `<option value="${o.id}">${escapeHtml(o.nome)}</option>`).join('');
+
+  document.getElementById('lancFunc').innerHTML = fOpts;
+  document.getElementById('lancObra').innerHTML = oOpts;
+
+  document.getElementById('filtroFunc').innerHTML =
+    '<option value="">Todos</option>' +
+    state.funcionarios.map(f => `<option value="${f.id}">${escapeHtml(f.nome)}</option>`).join('');
+  document.getElementById('filtroObra').innerHTML =
+    '<option value="">Todas</option>' +
+    state.obras.map(o => `<option value="${o.id}">${escapeHtml(o.nome)}</option>`).join('');
+}
+
+function salvarLancamento() {
+  const data = document.getElementById('lancData').value;
+  const fid = document.getElementById('lancFunc').value;
+  const oid = document.getElementById('lancObra').value;
+  const horas = parseFloat(document.getElementById('lancHoras').value) || 0;
+  const fracao = parseFloat(document.getElementById('lancFrac').value);
+  const obs = document.getElementById('lancObs').value.trim();
+
+  if (!data) return toast('Informe a data', 'error');
+  if (!fid) return toast('Selecione o funcionário', 'error');
+  if (!oid) return toast('Selecione a obra', 'error');
+
+  const f = state.funcionarios.find(x => x.id === fid);
+  const o = state.obras.find(x => x.id === oid);
+  const diaria = f ? f.diaria : 0;
+  const custo = diaria * fracao;
+
+  state.lancamentos.push({
+    id: id(),
+    data,
+    funcionarioId: fid,
+    funcionarioNome: f.nome, // snapshot caso funcionário seja apagado
+    funcionarioCargo: f.cargo,
+    obraId: oid,
+    obraNome: o.nome,
+    horas,
+    fracao,
+    diaria,
+    custo,
+    obs,
+    criadoEm: new Date().toISOString()
+  });
+  salvar();
+  // Limpa só os campos voláteis - mantém data e fração
+  document.getElementById('lancFunc').value = '';
+  document.getElementById('lancObra').value = '';
+  document.getElementById('lancHoras').value = '';
+  document.getElementById('lancObs').value = '';
+  renderLanctosHoje();
+  toast(`✓ ${fmtMoeda(custo)} lançado`, 'success');
+}
+
+function renderLanctosHoje() {
+  const c = document.getElementById('lanctosHoje');
+  const dataAtual = document.getElementById('lancData').value;
+  document.getElementById('dataAtualLabel').textContent = fmtDataExtensa(dataAtual);
+
+  const lanctos = state.lancamentos
+    .filter(l => l.data === dataAtual)
+    .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+
+  if (!lanctos.length) {
+    c.innerHTML = '<div class="empty"><p>Nenhum lançamento ainda para esta data.</p></div>';
+    return;
+  }
+
+  const total = lanctos.reduce((s, l) => s + l.custo, 0);
+  c.innerHTML = `
+    <div style="background:var(--accent);color:white;padding:12px 16px;border-radius:var(--radius-sm);margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:0.7">Total do dia</div>
+        <div style="font-size:22px;font-weight:700;margin-top:2px">${fmtMoeda(total)}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;opacity:0.7">Lançamentos</div>
+        <div style="font-size:22px;font-weight:700;margin-top:2px">${lanctos.length}</div>
+      </div>
+    </div>
+  ` + lanctos.map(l => `
+    <div class="lancto">
+      <div class="lancto-top">
+        <div class="lancto-func">${escapeHtml(l.funcionarioNome)}</div>
+        <div class="lancto-custo">${fmtMoeda(l.custo)}</div>
+      </div>
+      <div class="lancto-obra">→ ${escapeHtml(l.obraNome)}</div>
+      <div class="lancto-meta">
+        <span>⏱ ${l.horas}h</span>
+        <span>📐 ${l.fracao} dia</span>
+        ${l.obs ? `<span style="overflow:hidden;text-overflow:ellipsis">📝 ${escapeHtml(l.obs)}</span>` : ''}
+      </div>
+      <div class="lancto-actions">
+        <button onclick="duplicarLancto('${l.id}')">Duplicar</button>
+        <button class="del" onclick="deletarLancto('${l.id}')">Remover</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function duplicarLancto(lid) {
+  const l = state.lancamentos.find(x => x.id === lid);
+  if (!l) return;
+  const novo = { ...l, id: id(), criadoEm: new Date().toISOString() };
+  state.lancamentos.push(novo);
+  salvar();
+  renderLanctosHoje();
+  toast('Duplicado', 'success');
+}
+
+function deletarLancto(lid) {
+  const l = state.lancamentos.find(x => x.id === lid);
+  confirmar('Remover lançamento?', `${l.funcionarioNome} em ${l.obraNome} (${fmtData(l.data)})`, () => {
+    state.lancamentos = state.lancamentos.filter(x => x.id !== lid);
+    salvar();
+    renderLanctosHoje();
+    if (document.getElementById('view-historico').classList.contains('active')) renderHistorico();
+    toast('Removido');
+  });
+}
+
+/* ============================================================
+   HISTÓRICO
+   ============================================================ */
+function renderHistorico() {
+  const de = document.getElementById('filtroDe').value;
+  const ate = document.getElementById('filtroAte').value;
+  const fid = document.getElementById('filtroFunc').value;
+  const oid = document.getElementById('filtroObra').value;
+
+  let lanctos = state.lancamentos.slice();
+  if (de) lanctos = lanctos.filter(l => l.data >= de);
+  if (ate) lanctos = lanctos.filter(l => l.data <= ate);
+  if (fid) lanctos = lanctos.filter(l => l.funcionarioId === fid);
+  if (oid) lanctos = lanctos.filter(l => l.obraId === oid);
+
+  lanctos.sort((a, b) => b.data.localeCompare(a.data) || b.criadoEm.localeCompare(a.criadoEm));
+
+  const totalCusto = lanctos.reduce((s, l) => s + l.custo, 0);
+  const totalHoras = lanctos.reduce((s, l) => s + l.horas, 0);
+  const totalDias = lanctos.reduce((s, l) => s + l.fracao, 0);
+
+  document.getElementById('kpisHistorico').innerHTML = `
+    <div class="kpi featured">
+      <div class="kpi-label">Custo total</div>
+      <div class="kpi-value">${fmtMoeda(totalCusto)}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Lançamentos</div>
+      <div class="kpi-value">${lanctos.length}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Dias-Homem</div>
+      <div class="kpi-value">${totalDias.toFixed(1)}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Total horas</div>
+      <div class="kpi-value">${totalHoras.toFixed(1)}h</div>
+    </div>
+  `;
+
+  const c = document.getElementById('lanctosHistorico');
+  if (!lanctos.length) {
+    c.innerHTML = '<div class="empty"><p>Nenhum lançamento no filtro.</p></div>';
+    return;
+  }
+
+  // Agrupar por data
+  const porData = {};
+  lanctos.forEach(l => {
+    if (!porData[l.data]) porData[l.data] = [];
+    porData[l.data].push(l);
+  });
+
+  c.innerHTML = Object.keys(porData).sort((a, b) => b.localeCompare(a)).map(data => {
+    const grupo = porData[data];
+    const tot = grupo.reduce((s, l) => s + l.custo, 0);
+    return `
+      <div style="margin-top:10px;padding:8px 12px;display:flex;justify-content:space-between;align-items:baseline;">
+        <div style="font-size:13px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.5px">${fmtData(data)}</div>
+        <div style="font-size:13px;color:var(--accent);font-weight:600">${fmtMoeda(tot)}</div>
+      </div>
+    ` + grupo.map(l => `
+      <div class="lancto">
+        <div class="lancto-top">
+          <div class="lancto-func">${escapeHtml(l.funcionarioNome)}</div>
+          <div class="lancto-custo">${fmtMoeda(l.custo)}</div>
+        </div>
+        <div class="lancto-obra">→ ${escapeHtml(l.obraNome)}</div>
+        <div class="lancto-meta">
+          <span>⏱ ${l.horas}h</span>
+          <span>📐 ${l.fracao} dia</span>
+          ${l.obs ? `<span style="overflow:hidden;text-overflow:ellipsis">📝 ${escapeHtml(l.obs)}</span>` : ''}
+        </div>
+        <div class="lancto-actions">
+          <button class="del" onclick="deletarLancto('${l.id}')">Remover</button>
+        </div>
+      </div>
+    `).join('');
+  }).join('');
+}
+
+function aplicarFiltro() {
+  renderHistorico();
+}
+
+/* ============================================================
+   EXPORTAÇÃO
+   ============================================================ */
+function atualizarExportInfo() {
+  document.getElementById('exportTotal').textContent = state.lancamentos.length;
+  if (state.lancamentos.length === 0) {
+    document.getElementById('exportPeriodo').textContent = '—';
+    return;
+  }
+  const datas = state.lancamentos.map(l => l.data).sort();
+  document.getElementById('exportPeriodo').textContent = `${fmtData(datas[0])} a ${fmtData(datas[datas.length - 1])}`;
+}
+
+function montarLinhas() {
+  const lanctos = state.lancamentos.slice().sort((a, b) =>
+    a.data.localeCompare(b.data) || a.criadoEm.localeCompare(b.criadoEm)
+  );
+  return lanctos.map(l => ({
+    'Data': fmtData(l.data),
+    'Funcionário': l.funcionarioNome,
+    'Função': l.funcionarioCargo || '',
+    'Obra': l.obraNome,
+    'Horas': l.horas,
+    'Fração do Dia': l.fracao,
+    'Diária (R$)': l.diaria,
+    'Custo do Dia (R$)': l.custo,
+    'Atividade / Observação': l.obs || ''
+  }));
+}
+
+function exportarExcel() {
+  if (!state.lancamentos.length) return toast('Nenhum lançamento para exportar', 'error');
+
+  const linhas = montarLinhas();
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(linhas);
+
+  // Ajustar largura das colunas
+  ws['!cols'] = [
+    { wch: 12 }, { wch: 22 }, { wch: 18 }, { wch: 24 },
+    { wch: 8 },  { wch: 12 }, { wch: 14 }, { wch: 16 }, { wch: 30 }
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Lançamentos');
+
+  // Aba auxiliar com cadastros
+  const wsFunc = XLSX.utils.json_to_sheet(state.funcionarios.map(f => ({
+    Nome: f.nome, Função: f.cargo, 'Diária (R$)': f.diaria
+  })));
+  wsFunc['!cols'] = [{ wch: 25 }, { wch: 22 }, { wch: 14 }];
+  XLSX.utils.book_append_sheet(wb, wsFunc, 'Funcionários');
+
+  const wsObra = XLSX.utils.json_to_sheet(state.obras.map(o => ({
+    Nome: o.nome, Endereço: o.endereco, Status: o.status
+  })));
+  wsObra['!cols'] = [{ wch: 28 }, { wch: 35 }, { wch: 16 }];
+  XLSX.utils.book_append_sheet(wb, wsObra, 'Obras');
+
+  const nomeArq = `Lancamentos_Obras_${hoje()}.xlsx`;
+
+  // Gera blob e dispara compartilhamento Web Share API (iOS)
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  compartilharOuBaixar(blob, nomeArq);
+}
+
+function exportarCSV() {
+  if (!state.lancamentos.length) return toast('Nenhum lançamento para exportar', 'error');
+
+  const linhas = montarLinhas();
+  const headers = Object.keys(linhas[0]);
+  const csvRows = [headers.join(';')];
+  linhas.forEach(l => {
+    csvRows.push(headers.map(h => {
+      const v = l[h];
+      if (typeof v === 'number') return v.toString().replace('.', ','); // BR locale
+      const s = String(v).replace(/"/g, '""');
+      return /[;\n"]/.test(s) ? `"${s}"` : s;
+    }).join(';'));
+  });
+  const csv = '\uFEFF' + csvRows.join('\n'); // BOM para abrir certo no Excel
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  compartilharOuBaixar(blob, `Lancamentos_Obras_${hoje()}.csv`);
+}
+
+async function compartilharOuBaixar(blob, nomeArq) {
+  // No iOS Safari, Web Share API com arquivo abre folha de compartilhamento (AirDrop, Mail, Files...)
+  const file = new File([blob], nomeArq, { type: blob.type });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'Lançamentos de obras' });
+      toast('Compartilhado', 'success');
+      return;
+    } catch (e) {
+      if (e.name !== 'AbortError') console.warn('Share falhou, baixando:', e);
+      else return; // usuário cancelou
+    }
+  }
+
+  // Fallback: download direto
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nomeArq;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('Arquivo gerado', 'success');
+}
+
+async function copiarParaArea() {
+  if (!state.lancamentos.length) return toast('Nada para copiar', 'error');
+  const linhas = montarLinhas();
+  const headers = Object.keys(linhas[0]);
+  const tsv = headers.join('\t') + '\n' + linhas.map(l =>
+    headers.map(h => {
+      const v = l[h];
+      return typeof v === 'number' ? v.toString().replace('.', ',') : String(v);
+    }).join('\t')
+  ).join('\n');
+
+  try {
+    await navigator.clipboard.writeText(tsv);
+    toast('Copiado! Cole no Excel (Cmd+V)', 'success');
+  } catch (e) {
+    toast('Não foi possível copiar', 'error');
+  }
+}
+
+function exportarBackup() {
+  const backup = {
+    versao: 1,
+    geradoEm: new Date().toISOString(),
+    ...state
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  compartilharOuBaixar(blob, `Backup_Obras_${hoje()}.json`);
+}
+
+function importarBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.funcionarios || !data.obras || !data.lancamentos) throw new Error('Backup inválido');
+      confirmar('Restaurar backup?',
+        `${data.funcionarios.length} funcionários, ${data.obras.length} obras, ${data.lancamentos.length} lançamentos. Os dados atuais serão substituídos.`,
+        () => {
+          state.funcionarios = data.funcionarios;
+          state.obras = data.obras;
+          state.lancamentos = data.lancamentos;
+          salvar();
+          popularSelects();
+          renderFuncionarios();
+          renderObras();
+          renderLanctosHoje();
+          atualizarExportInfo();
+          toast('Backup restaurado', 'success');
+        });
+    } catch (err) {
+      toast('Arquivo inválido', 'error');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function apagarTudo() {
+  confirmar('Apagar todos os lançamentos?',
+    `Os ${state.lancamentos.length} lançamentos serão removidos permanentemente. Cadastros de funcionários e obras serão mantidos.`,
+    () => {
+      state.lancamentos = [];
+      salvar();
+      renderLanctosHoje();
+      atualizarExportInfo();
+      toast('Lançamentos apagados');
+    });
+}
+
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  carregar();
+  popularSelects();
+
+  // Setar data padrão = hoje
+  const h = hoje();
+  document.getElementById('lancData').value = h;
+  document.getElementById('lancData').addEventListener('change', renderLanctosHoje);
+
+  // Filtro padrão = mês atual
+  const d = new Date();
+  const primDia = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+  document.getElementById('filtroDe').value = primDia;
+  document.getElementById('filtroAte').value = h;
+
+  renderLanctosHoje();
+});
+</script>
+
+</body>
+</html>
